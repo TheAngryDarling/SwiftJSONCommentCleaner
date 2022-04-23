@@ -9,28 +9,204 @@ import Foundation
 
 /// Class used to parse comment blocks out of JSON
 public class JSONCommentCleaner {
-    /// An array of identifiable comment block types
-    private let supportedCommentTypes: [JSONCleanerComment]
-    
-    /// Create new JSON Comment Cleaner
-    /// - Parameter supportedCommentTypes: An array of identifiable comment block types
-    public init(supportedCommentTypes: [JSONCleanerComment]) {
-        
-        for comment in supportedCommentTypes {
-            precondition(!comment.openingBlock.isEmpty, "Opening block can not be empty")
-            precondition(!comment.openingBlock.hasPrefix("\""), "Comment blocks can not start with '\"'")
-        }
-        self.supportedCommentTypes = supportedCommentTypes
-        
-    }
     
     public enum ParsingError: Swift.Error {
-        case unableToDecodeString(from: Data, usingEncoding: String.Encoding)
-        case unableToConvert(string: String, toEncoding: String.Encoding)
-        case danglingString(String.Index)
-        case danglingInlineComment(index: String.Index, openingBlock: String, expectedClosingBlock: String)
+        case unableToDecodeString(from: Data,
+                                  usingEncoding: String.Encoding)
+        case unableToConvert(string: String,
+                             toEncoding: String.Encoding)
+        
+        case unterminatedComment(blockOpening: String,
+                                 blockClosing: String,
+                                 atIndex: String.Index,
+                                 line: Int,
+                                 column: Int)
+        
+        case unterminatedString(stringIndicator: String,
+                                atIndex: String.Index,
+                                line: Int,
+                                column: Int)
     }
     
+    
+    /// Optional settings when removing comment blocks
+    public struct RemoveCommentOptions: OptionSet, ExpressibleByIntegerLiteral {
+        public let rawValue: Int
+        public init(rawValue: Int) { self.rawValue = rawValue }
+        public init(integerLiteral value: Int) { self.rawValue = value }
+        
+        public static let none: RemoveCommentOptions = 0
+        public static let removeEmptyLines = RemoveCommentOptions(rawValue: 1 << 0)
+    }
+    
+    /// An array of identifiable comment block types
+    private let commentBlocks: [JSONParsableCommentBlock]
+    
+    private let options: RemoveCommentOptions
+    
+    /// Create new JSON Comment Cleaner
+    /// - Parameters:
+    ///   - commentBlocks: An array of identifiable comment block types
+    ///   - options: Options when removing comments
+    public init(commentBlocks: [JSONParsableCommentBlock],
+                options: RemoveCommentOptions = .none) {
+    
+        self.commentBlocks = commentBlocks
+        self.options = options
+        
+    }
+    
+    
+    /// Parse the give JSON string and remove any comments before
+    /// returning it
+    ///
+    /// - Parameter jsonString: The JSON Strign containing comments
+    /// - Returns: The clean JSON string
+    public func parse(_ jsonString: String) throws -> String {
+        let stringBlock = JSONStringBlocks.doubleQuoteStringBlock
+        
+        var currentLine: Int = 1
+        var workingString = jsonString
+        var lastNewLineIndex: String.Index = workingString.startIndex
+       
+        var currentIndex = workingString.startIndex
+        
+        
+        while currentIndex < workingString.endIndex {
+            if workingString[currentIndex] == "\n" {
+                currentLine += 1
+                lastNewLineIndex = currentIndex
+                // Move to next index
+                currentIndex = workingString.index(after: currentIndex)
+            } else if let pb = stringBlock.parse(string: &workingString,
+                                                 startingAt: currentIndex) {
+                switch pb {
+                    case .block(let b):
+                        // Move past the end of the string
+                        currentIndex = b.outer.upperBound
+                    case .openEndedBlock(prefix: let prefix,
+                                         expectedSuffix: _,
+                                         startingAt: let startBlockIndex):
+                        if startBlockIndex > currentIndex {
+                            // Sine the startBlockIndex if after the current index
+                            // we need to check for any extra new line characters between
+                            // currentIndex and startBlockIndex
+                            currentLine += workingString.countOccurrences(of: "\n",
+                                                                          inRange: currentIndex..<startBlockIndex)
+                            
+                            
+                        }
+                    
+                        var column = 0
+                        if let r = workingString.range(of: "\n",
+                                                       options: .backwards,
+                                                       range: lastNewLineIndex..<startBlockIndex) {
+                            column = workingString.distance(from: r.upperBound,
+                                                            to: startBlockIndex)
+                        }
+                        throw ParsingError.unterminatedString(stringIndicator: prefix,
+                                                              atIndex: startBlockIndex,
+                                                              line: currentLine,
+                                                              column: column + 1)
+                }
+                
+            } else if let cb = self.commentBlocks.firstResponse(from: { return $0.parse(string: &workingString,
+                                                                            startingAt: currentIndex) }) {
+                
+                switch cb {
+                    case .block(let b):
+                        // Find how man new lines there are in the comment block
+                        let subLines = workingString.countOccurrences(of: "\n",
+                                                                      inRange: b.outer)
+                        // Add the number of extra lines to the currentLine count
+                        currentLine += subLines
+                        // Remove the comment block from the string
+                        workingString.removeSubrange(b.outer)
+                    case .openEndedBlock(prefix: let prefix,
+                                         expectedSuffix: let suffix,
+                                         startingAt: let startBlockIndex):
+                        if startBlockIndex > currentIndex {
+                            // Sine the startBlockIndex if after the current index
+                            // we need to check for any extra new line characters between
+                            // currentIndex and startBlockIndex
+                            currentLine += workingString.countOccurrences(of: "\n",
+                                                                          inRange: currentIndex..<startBlockIndex)
+                        }
+                    
+                        var column = 0
+                        if let r = workingString.range(of: "\n",
+                                                       options: .backwards,
+                                                       range: lastNewLineIndex..<startBlockIndex) {
+                            column = workingString.distance(from: r.upperBound,
+                                                            to: startBlockIndex)
+                        }
+                        throw ParsingError.unterminatedComment(blockOpening: prefix,
+                                                               blockClosing: suffix,
+                                                               atIndex: startBlockIndex,
+                                                               line: currentLine,
+                                                               column: column + 1)
+                }
+                
+            } else {
+                // Move to next index
+                currentIndex = workingString.index(after: currentIndex)
+            }
+            
+        }
+        
+        if !self.options.isEmpty {
+            var lines = workingString.split(separator: "\n").map(String.init)
+            var index = lines.startIndex
+            while index < lines.endIndex {
+                if self.options.contains(.removeEmptyLines) &&
+                    lines[index].rtrim().isEmpty {
+                    lines.remove(at: index)
+                } else {
+                    index = lines.index(after: index)
+                }
+            }
+            workingString = lines.joined(separator: "\n")
+        }
+        
+        
+        return workingString
+    }
+    
+    
+}
+
+extension JSONCommentCleaner.ParsingError: CustomStringConvertible {
+    
+    public var description: String {
+        switch self {
+            case .unableToDecodeString(from: _,
+                                       usingEncoding: let enc):
+                return "Unable to decode string with '\(enc))'"
+            case .unableToConvert(string: _,
+                                  toEncoding: let enc):
+                return "Unable to encode string with '\(enc))'"
+            case .unterminatedComment(blockOpening: let prefix,
+                                        blockClosing: let suffix,
+                                        atIndex: _,
+                                        line: let line,
+                                        column: let column):
+                var msg = "Error: Unterminated Comment '\(prefix)', on line: \(line), column: \(column) missing closing block"
+                if suffix == "\n" || suffix == "\r\n" {
+                    msg += " newLine"
+                } else {
+                    msg += " '\(suffix)'"
+                }
+                return msg
+            case .unterminatedString(stringIndicator: let quote,
+                                       atIndex: _,
+                                       line: let line,
+                                       column: let column):
+                return "Error: Unterminated String '\(quote)', on line: \(line), column: \(column)"
+        }
+    }
+}
+
+extension JSONCommentCleaner {
     /// Parse the JSON Data object and return as a clean JSON string
     /// - Parameters:
     ///   - jsonData: The data representing the JSON with comments
@@ -99,165 +275,43 @@ public class JSONCommentCleaner {
         var encoding: String.Encoding = .utf8
         return try self.parse(jsonURL, usedEncoding: &encoding)
     }
-    
-    /// Parse the give JSON string and remove any comments before
-    /// returning it
-    ///
-    /// - Parameter jsonString: The JSON Strign containing comments
-    /// - Returns: The clean JSON string
-    public func parse(_ jsonString: String) throws -> String {
-        var workingString = jsonString
-        
-        // Put functions within parse function so that the workingSting would
-        // not need to be copied with every call do these functions
-        
-        /// Find the end of the string block we're currently in
-        func endOfString(startingAt index: String.Index) -> String.Index? {
-            var workingIndex = workingString.index(after: index)
-            while workingIndex < workingString.endIndex {
-                if workingString[workingIndex] == "\"" && // Find the " and make sure its not \"
-                    workingString[workingString.index(before: workingIndex)] != "\\" {
-                    //print("Found String '\(String(workingString[index...workingIndex]))'")
-                    return workingIndex
-                }
-                workingIndex = workingString.index(after: workingIndex)
-            }
-            return nil
-        }
-        /// Find the end of the current line
-        func processToEndOfLine(startingAt index: String.Index) -> String.Index {
-            var workingIndex = workingString.index(after: index)
-            while workingIndex < workingString.endIndex {
-                if workingString[workingIndex] == "\n" { // Find the end of the line
-                    if workingIndex > workingString.startIndex &&
-                        workingString[workingString.index(before: workingIndex)] == "\r" {
-                        return workingString.index(before: workingIndex)
-                    }
-                    return workingIndex
-                }
-                workingIndex = workingString.index(after: workingIndex)
-            }
-            return workingIndex
-        }
-        /// Process an inline comment block (A comment block that start and finishes
-        /// on the same line and can have real data on either side of it
-        func processInlineComment(startingAt index: String.Index,
-                                  withOpening opening: String,
-                                  havingClosing closing: String,
-                                  allowsRecursive: Bool) -> String.Index? {
-            
-            
-            guard var workingIndex = workingString.index(index, offsetBy: opening.count, limitedBy: workingString.endIndex) else { return nil }
-            while workingIndex < workingString.endIndex {
-                if allowsRecursive,
-                   let subBlock = workingString.getSubString(from: workingIndex, withMaxLength: opening.count),
-                   subBlock == opening {
-                    guard let idx = processInlineComment(startingAt: workingIndex,
-                                                         withOpening: opening,
-                                                         havingClosing: closing,
-                                                         allowsRecursive: allowsRecursive) else {
-                        return nil
-                    }
-                    workingIndex = idx
-                } else if let subBlock = workingString.getSubString(from: workingIndex, withMaxLength: closing.count),
-                          subBlock == closing {
-                    return workingString.index(workingIndex, offsetBy: closing.count)
-                }
-                
-                workingIndex = workingString.index(after: workingIndex)
-            }
-            
-            return nil
-            
-        }
-        
-        var workingIndex = workingString.startIndex
-        // Loop through the characters of the string
-        while workingIndex < workingString.endIndex {
-            
-            // check to see if we are at the opening of a string
-            if workingString[workingIndex] == "\"" {
-                // Find the end of the string
-                guard let stringEndingAt = endOfString(startingAt: workingIndex) else {
-                    throw ParsingError.danglingString(workingIndex)
-                }
-                // skip over the string
-                workingIndex = stringEndingAt
-            } else {
-                // loop through the supported comment block types
-                // to see if we are at the beginning of one of them
-                for comment in self.supportedCommentTypes {
-                    // Make sure that we are starting with the comment block
-                    guard let checkedBlock = workingString.getSubString(from: workingIndex,
-                                                                        withMaxLength: comment.openingBlock.count),
-                          checkedBlock == comment.openingBlock else {
-                        continue
-                    }
-                    // See of the current comment block type
-                    // has a closing block sequence meaning
-                    // its an inline block
-                    if let closing = comment.closingBLock {
-                        // Find the end of the inline comment block
-                        guard let endOfComment = processInlineComment(startingAt: workingIndex,
-                                                                      withOpening: comment.openingBlock,
-                                                                      havingClosing: closing,
-                                                                      allowsRecursive: comment.supportsRecuriveInline) else {
-                            throw ParsingError.danglingInlineComment(index: workingIndex,
-                                                                     openingBlock: comment.openingBlock,
-                                                                     expectedClosingBlock: closing)
-                        }
-                        workingString.removeSubrange(workingIndex..<endOfComment)
-                        
-                    } else {
-                        // Since no closing block then we process to the end of the line
-                        let endOfLine = processToEndOfLine(startingAt: workingIndex)
-                        workingString.removeSubrange(workingIndex..<endOfLine)
-                    }
-                    
-                }
-            }
-            
-            workingIndex = workingString.index(after: workingIndex)
-        }
-        
-        
-        return workingString
-        
-        
-    }
-    
-    
 }
 
 /// Class used to parse comment blocks of a certain type out of JSON
-public class JSONCommentSetCleaner<CommentType>: JSONCommentCleaner where CommentType: JSONCleanerComment, CommentType: Hashable {
+public class JSONCommentSetCleaner<CommentType>: JSONCommentCleaner where CommentType: JSONBasicCommentBlock, CommentType: Hashable {
     
     /// Create new JSON Comment Cleaner
-    /// - Parameter supportedCommentTypes: A set of identifiable comment block types
-    public init(supportedCommentTypes: Set<CommentType>) {
+    /// - Parameters:
+    ///   - commentBlocks: A set of identifiable comment block types
+    ///   - options: Options when removing comments
+    public init(commentBlocks: Set<CommentType>,
+                options: RemoveCommentOptions = .none) {
         
-        var cts: [JSONCleanerComment] = []
-        for item in supportedCommentTypes {
-            cts.append(item)
+        for comment in commentBlocks {
+            precondition(!comment.openingBlock.isEmpty, "Opening block can not be empty")
+            precondition(!comment.openingBlock.hasPrefix("\""), "Comment blocks can not start with '\"'")
         }
-        super.init(supportedCommentTypes: supportedCommentTypes.map({ return $0 }))
+       super.init(commentBlocks: commentBlocks.map({ return $0 }),
+                  options: options)
     }
 }
 
 #if swift(>=4.2)
 public extension JSONCommentSetCleaner where CommentType: CaseIterable {
-    convenience init() {
-        self.init(supportedCommentTypes: Set<CommentType>(CommentType.allCases))
+    convenience init(options: RemoveCommentOptions = .none) {
+        self.init(commentBlocks: Set<CommentType>(CommentType.allCases),
+                  options: options)
     }
 }
 #endif
 
-public typealias JSONDefultCommentCleaner = JSONCommentSetCleaner<DefaultJSONCleanerComments>
+public typealias JSONDefultCommentCleaner = JSONCommentSetCleaner<JSONDefaultCleanerComments>
 
 //#if !swift(>=4.2)
-public extension JSONCommentSetCleaner where CommentType == DefaultJSONCleanerComments {
-    convenience init() {
-        self.init(supportedCommentTypes: [.doubleSlash, .hash, .inline])
+public extension JSONCommentSetCleaner where CommentType == JSONDefaultCleanerComments {
+    convenience init(options: RemoveCommentOptions = .none) {
+        self.init(commentBlocks: [.doubleSlash, .hash, .inline],
+                  options: options)
     }
 }
 //#endif

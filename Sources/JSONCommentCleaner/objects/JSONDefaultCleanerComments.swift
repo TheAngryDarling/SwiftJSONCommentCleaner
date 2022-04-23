@@ -1,5 +1,5 @@
 //
-//  DefaultJSONCleanerComments.swift
+//  JSONDefaultCleanerComments.swift
 //  
 //
 //  Created by Tyler Anger on 2022-04-23.
@@ -8,32 +8,36 @@
 import Foundation
 
 /// An enum defining common JSON Comment Blocks
-public enum DefaultJSONCleanerComments: String, JSONCleanerComment {
+public enum JSONDefaultCleanerComments: String, JSONBasicCommentBlock {
+    
     /// Support comment line starting with //
-    case doubleSlash
+    case doubleSlash = "//"
     /// Support comment line starting with #
-    case hash
+    case hash = "#"
     /// Support inline comment /*...*/
     /// This will stop after it finds the first close (*/)
-    case inline
+    case inline = "/*"
     
     
     public var openingBlock: String {
+        return self.rawValue
+        /*
         switch self {
             case .doubleSlash: return "//"
             case .hash: return "#"
-            case .inline: return "/*"
+            case .inline: return "/ *"
         }
+        */
     }
     
-    public var closingBLock: String? {
+    public var closingBlock: String? {
         switch self {
             case .inline: return "*/"
             default: return nil
         }
     }
     
-    public var supportsRecuriveInline: Bool {
+    public var allowNestedCommentBlocks: Bool {
         switch self {
             case .inline: return true
             default: return false
@@ -43,5 +47,5 @@ public enum DefaultJSONCleanerComments: String, JSONCleanerComment {
 }
 
 #if swift(>=4.2)
-extension DefaultJSONCleanerComments: CaseIterable { }
+extension JSONDefaultCleanerComments: CaseIterable { }
 #endif

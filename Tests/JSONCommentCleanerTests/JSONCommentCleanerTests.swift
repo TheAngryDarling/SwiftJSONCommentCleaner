@@ -103,7 +103,7 @@ final class JSONCommentCleanerTests: XCTestCase {
     """
     
     func testParsingComments() {
-        let commentCleaner = JSONDefultCommentCleaner()
+        let commentCleaner = JSONDefultCommentCleaner(/*options: .removeEmptyLines*/)
         do {
             let parsed = try commentCleaner.parse(self.jsonStringWithComments)
             XCTAssertEqual(parsed, jsonString)
@@ -137,7 +137,10 @@ final class JSONCommentCleanerTests: XCTestCase {
                 XCTFail("Unexpected error of type '\(type(of: $0))' - \($0)")
                 return
             }
-            guard case .danglingString(_) = e else {
+            guard case .unterminatedString(stringIndicator: _,
+                                           atIndex: _,
+                                           line: _,
+                                           column: _) = e else {
                 XCTFail("Unexpected error value '\(e)'")
                 return
             }
@@ -147,7 +150,11 @@ final class JSONCommentCleanerTests: XCTestCase {
                 XCTFail("Unexpected error of type '\(type(of: $0))' - \($0)")
                 return
             }
-            guard case .danglingInlineComment(index: _, openingBlock: _, expectedClosingBlock: _) = e else {
+            guard case .unterminatedComment(blockOpening: _,
+                                            blockClosing: _,
+                                            atIndex: _,
+                                            line: _,
+                                            column: _) = e else {
                 XCTFail("Unexpected error value '\(e)'")
                 return
             }
@@ -157,7 +164,11 @@ final class JSONCommentCleanerTests: XCTestCase {
                 XCTFail("Unexpected error of type '\(type(of: $0))' - \($0)")
                 return
             }
-            guard case .danglingInlineComment(index: _, openingBlock: _, expectedClosingBlock: _) = e else {
+            guard case .unterminatedComment(blockOpening: _,
+                                            blockClosing: _,
+                                            atIndex: _,
+                                            line: _,
+                                            column: _) = e else {
                 XCTFail("Unexpected error value '\(e)'")
                 return
             }
