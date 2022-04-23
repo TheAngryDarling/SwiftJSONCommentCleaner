@@ -305,7 +305,7 @@ public extension JSONCommentSetCleaner where CommentType: CaseIterable {
 }
 #endif
 
-public typealias JSONDefultCommentCleaner = JSONCommentSetCleaner<JSONDefaultCleanerComments>
+public typealias JSONDefaultCommentCleaner = JSONCommentSetCleaner<JSONDefaultCleanerComments>
 
 //#if !swift(>=4.2)
 public extension JSONCommentSetCleaner where CommentType == JSONDefaultCleanerComments {

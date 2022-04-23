@@ -18,7 +18,7 @@ Clean custom comments out of JSON data
 
 ```swift
 let jsonData = ...
-let commentCleaner = JSONDefultCommentCleaner()
+let commentCleaner = JSONDefaultCommentCleaner()
 let cleanJSONData = try commentCleaner.parse(jsonData, encoding: .utf8)
 
 let decoder = JSONDecoder()

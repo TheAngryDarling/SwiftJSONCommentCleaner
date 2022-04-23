@@ -103,7 +103,7 @@ final class JSONCommentCleanerTests: XCTestCase {
     """
     
     func testParsingComments() {
-        let commentCleaner = JSONDefultCommentCleaner(/*options: .removeEmptyLines*/)
+        let commentCleaner = JSONDefaultCommentCleaner(/*options: .removeEmptyLines*/)
         do {
             let parsed = try commentCleaner.parse(self.jsonStringWithComments)
             XCTAssertEqual(parsed, jsonString)
@@ -131,9 +131,9 @@ final class JSONCommentCleanerTests: XCTestCase {
     }
     
     func testDangling() {
-        let commentCleaner = JSONDefultCommentCleaner()
+        let commentCleaner = JSONDefaultCommentCleaner()
         XCTAssertThrowsError(try commentCleaner.parse(self.jsonStringWithDanglingStringField)) {
-            guard let e = $0 as? JSONDefultCommentCleaner.ParsingError else {
+            guard let e = $0 as? JSONDefaultCommentCleaner.ParsingError else {
                 XCTFail("Unexpected error of type '\(type(of: $0))' - \($0)")
                 return
             }
@@ -146,7 +146,7 @@ final class JSONCommentCleanerTests: XCTestCase {
             }
         }
         XCTAssertThrowsError(try commentCleaner.parse(self.jsonStringWithDanglingInline1)) {
-            guard let e = $0 as? JSONDefultCommentCleaner.ParsingError else {
+            guard let e = $0 as? JSONDefaultCommentCleaner.ParsingError else {
                 XCTFail("Unexpected error of type '\(type(of: $0))' - \($0)")
                 return
             }
@@ -160,7 +160,7 @@ final class JSONCommentCleanerTests: XCTestCase {
             }
         }
         XCTAssertThrowsError(try commentCleaner.parse(self.jsonStringWithDanglingInline2)) {
-            guard let e = $0 as? JSONDefultCommentCleaner.ParsingError else {
+            guard let e = $0 as? JSONDefaultCommentCleaner.ParsingError else {
                 XCTFail("Unexpected error of type '\(type(of: $0))' - \($0)")
                 return
             }
