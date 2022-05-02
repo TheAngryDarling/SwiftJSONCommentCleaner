@@ -21,13 +21,6 @@ public enum JSONDefaultCleanerComments: String, JSONBasicCommentBlock {
     
     public var openingBlock: String {
         return self.rawValue
-        /*
-        switch self {
-            case .doubleSlash: return "//"
-            case .hash: return "#"
-            case .inline: return "/ *"
-        }
-        */
     }
     
     public var closingBlock: String? {
