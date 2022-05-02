@@ -21,13 +21,20 @@ public extension JSONParsableCommentBlock {
 }
 
 public struct JSONBasicParsableCommentBlock: JSONParsableCommentBlock {
+    /// Parse the given string for the block
+    /// - Parameters:
+    ///   - string: The string to parse
+    ///   - startingAt: Where to start looking for block
+    /// - Returns: Returns the parsed response. Whether a block was found and parsed, found but unable to parse, or nil if not found
     public typealias ParseBlock = (_ string: UnsafePointer<String>,
                                    _ startingAt: String.Index) -> JSONParsedResponse?
     
+    /// The parser method to call
     private let _parser: ParseBlock
     
     public var allowNestedCommentBlocks: Bool
     public var keepEndingNewLine: Bool
+    
     /// Create a new parsable block
     /// - Parameters:
     ///   - allowNestedCommentBlocks: Allows for the comment to have nested comments of the same type
