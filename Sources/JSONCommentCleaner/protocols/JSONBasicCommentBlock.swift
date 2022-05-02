@@ -19,12 +19,13 @@ public protocol JSONBasicCommentBlock: JSONParsableCommentBlock {
 public extension JSONBasicCommentBlock {
     func parse(string: UnsafePointer<String>,
                startingAt: String.Index) -> JSONParsedResponse? {
+        // The block opening to look for
         let prefix = self.openingBlock
+        // The block closing to look for or new line
         let suffix = self.closingBlock ?? "\n"
-        let endOfPrefixIndex = string.index(startingAt,
-                                            offsetBy: prefix.count,
-                                            limitedBy: string.pointee.endIndex)
-        let prefixCheck = String(string[startingAt..<(endOfPrefixIndex ?? string.pointee.endIndex)])
+        
+        let prefixCheck = string.pointee.getSubString(from: startingAt,
+                                                      withMaxLength: prefix.count)
         guard prefixCheck == prefix else {
             // Comment block prefix not found
             return nil
