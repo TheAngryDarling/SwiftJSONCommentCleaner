@@ -8,7 +8,10 @@
 import Foundation
 
 internal extension UnsafePointer where Pointee == String {
+    /// The position of the first character in a nonempty string.
     var startIndex: String.Index { return self.pointee.startIndex }
+    /// A string's "past the end" position---that is, the position one greater
+    /// than the last valid subscript argument.
     var endIndex: String.Index { return self.pointee.endIndex }
     /// Returns the position immediately after the given index.
     func index(after i: String.Index) -> String.Index {
