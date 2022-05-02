@@ -8,6 +8,8 @@
 import Foundation
 
 internal extension String {
+    /// Returns the substring of the given string starting at the given index, upto length number of characters
+    /// or to the end of the string, which ever comes first
     func getSubString(from index: String.Index, withMaxLength length: Int) -> String? {
         guard index < self.endIndex else { return nil }
         var index = index
