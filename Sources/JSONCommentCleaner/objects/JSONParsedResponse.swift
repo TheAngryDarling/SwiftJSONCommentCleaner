@@ -15,9 +15,10 @@ public enum JSONParsedResponse {
         let outer: Range<String.Index>
         let inner: Range<String.Index>
     }
-    
+    /// Could not pasrse block, could not find block closure
     case openEndedBlock(prefix: String,
                         expectedSuffix: String,
                         startingAt: String.Index)
+    /// A parsed block
     case block(BlockDetails)
 }
