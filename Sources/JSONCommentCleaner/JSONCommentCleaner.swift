@@ -9,19 +9,21 @@ import Foundation
 
 /// Class used to parse comment blocks out of JSON
 public class JSONCommentCleaner {
-    
+    /// JSON Parsing Errors
     public enum ParsingError: Swift.Error {
+        /// Unable to decode data to string using the given encoding
         case unableToDecodeString(from: Data,
                                   usingEncoding: String.Encoding)
+        /// Unable to encode string to the given encoding
         case unableToConvert(string: String,
                              toEncoding: String.Encoding)
-        
+        /// Comment has no ending
         case unterminatedComment(blockOpening: String,
                                  blockClosing: String,
                                  atIndex: String.Index,
                                  line: Int,
                                  column: Int)
-        
+        /// String has no ending
         case unterminatedString(stringIndicator: String,
                                 atIndex: String.Index,
                                 line: Int,
@@ -303,15 +305,13 @@ public extension JSONCommentSetCleaner where CommentType: CaseIterable {
                   options: options)
     }
 }
-#endif
-
-public typealias JSONDefaultCommentCleaner = JSONCommentSetCleaner<JSONDefaultCleanerComments>
-
-//#if !swift(>=4.2)
+#else
 public extension JSONCommentSetCleaner where CommentType == JSONDefaultCleanerComments {
     convenience init(options: RemoveCommentOptions = .none) {
         self.init(commentBlocks: [.doubleSlash, .hash, .inline],
                   options: options)
     }
 }
-//#endif
+#endif
+
+public typealias JSONDefaultCommentCleaner = JSONCommentSetCleaner<JSONDefaultCleanerComments>
