@@ -8,6 +8,7 @@
 import Foundation
 
 internal enum JSONStringBlocks {
+    /// Create a string parser closure with the given character as the opening and closing of the string
     private static func stringParser(quote: Character) -> JSONBasicParsableBlock.ParseBlock {
         return { (_ string: UnsafePointer<String>,
                   _ startingAt: String.Index) -> JSONParsedResponse? in
